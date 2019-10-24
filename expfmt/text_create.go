@@ -323,6 +323,13 @@ func writeSample(
 			return written, err
 		}
 	}
+	if metric.TraceId != nil {
+		n, err = w.WriteString(fmt.Sprintf(" # {trace_id=\"%s\"}", *(metric.TraceId)))
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
 	err = w.WriteByte('\n')
 	written++
 	if err != nil {
