@@ -19,4 +19,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.4
 )
 
+replace github.com/prometheus/client_golang => ../client_golang
+replace github.com/prometheus/client_model => ../client_model
+
 go 1.11
