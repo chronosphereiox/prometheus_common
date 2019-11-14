@@ -324,7 +324,8 @@ func writeSample(
 		}
 	}
 	if metric.TraceId != nil {
-		n, err = w.WriteString(fmt.Sprintf(" # {trace_id=\"%s\"}", *(metric.TraceId)))
+		// Add a default value 0 to honor the exemplar format.
+		n, err = w.WriteString(fmt.Sprintf(" # {trace_id=\"%s\"} 0", *(metric.TraceId)))
 		written += n
 		if err != nil {
 			return written, err
