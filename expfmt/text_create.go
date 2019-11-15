@@ -162,6 +162,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 			n, err = writeSample(
 				w, name, "", metric, "", 0,
 				metric.Counter.GetValue(),
+				metric.GetExemplars(),
 			)
 		case dto.MetricType_GAUGE:
 			if metric.Gauge == nil {
@@ -172,6 +173,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 			n, err = writeSample(
 				w, name, "", metric, "", 0,
 				metric.Gauge.GetValue(),
+				metric.GetExemplars(),
 			)
 		case dto.MetricType_UNTYPED:
 			if metric.Untyped == nil {
@@ -182,6 +184,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 			n, err = writeSample(
 				w, name, "", metric, "", 0,
 				metric.Untyped.GetValue(),
+				metric.GetExemplars(),
 			)
 		case dto.MetricType_SUMMARY:
 			if metric.Summary == nil {
@@ -194,6 +197,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 					w, name, "", metric,
 					model.QuantileLabel, q.GetQuantile(),
 					q.GetValue(),
+					metric.GetExemplars(),
 				)
 				written += n
 				if err != nil {
@@ -203,6 +207,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 			n, err = writeSample(
 				w, name, "_sum", metric, "", 0,
 				metric.Summary.GetSampleSum(),
+				metric.GetExemplars(),
 			)
 			written += n
 			if err != nil {
@@ -211,6 +216,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 			n, err = writeSample(
 				w, name, "_count", metric, "", 0,
 				float64(metric.Summary.GetSampleCount()),
+				metric.GetExemplars(),
 			)
 		case dto.MetricType_HISTOGRAM:
 			if metric.Histogram == nil {
@@ -224,6 +230,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 					w, name, "_bucket", metric,
 					model.BucketLabel, b.GetUpperBound(),
 					float64(b.GetCumulativeCount()),
+					b.GetExemplars(),
 				)
 				written += n
 				if err != nil {
@@ -238,6 +245,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 					w, name, "_bucket", metric,
 					model.BucketLabel, math.Inf(+1),
 					float64(metric.Histogram.GetSampleCount()),
+					metric.GetExemplars(),
 				)
 				written += n
 				if err != nil {
@@ -247,6 +255,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 			n, err = writeSample(
 				w, name, "_sum", metric, "", 0,
 				metric.Histogram.GetSampleSum(),
+				metric.GetExemplars(),
 			)
 			written += n
 			if err != nil {
@@ -255,6 +264,7 @@ func MetricFamilyToText(out io.Writer, in *dto.MetricFamily) (written int, err e
 			n, err = writeSample(
 				w, name, "_count", metric, "", 0,
 				float64(metric.Histogram.GetSampleCount()),
+				metric.GetExemplars(),
 			)
 		default:
 			return written, fmt.Errorf(
@@ -280,6 +290,7 @@ func writeSample(
 	metric *dto.Metric,
 	additionalLabelName string, additionalLabelValue float64,
 	value float64,
+	exemplars map[string]string,
 ) (int, error) {
 	var written int
 	n, err := w.WriteString(name)
@@ -323,8 +334,8 @@ func writeSample(
 			return written, err
 		}
 	}
-	if metric.TraceId != nil {
-		n, err = w.WriteString(fmt.Sprintf(" # {trace_id=\"%s\"}", *(metric.TraceId)))
+	if len(exemplars) > 0 {
+		n, err = writeExemplar(w, exemplars)
 		written += n
 		if err != nil {
 			return written, err
@@ -335,6 +346,33 @@ func writeSample(
 	if err != nil {
 		return written, err
 	}
+	return written, nil
+}
+
+func writeExemplar(w enhancedWriter, exemplars map[string]string) (written int, err error) {
+	written = 0
+	n, err := w.WriteString(" # {")
+	written += n
+	if err != nil {
+		return written, err
+	}
+
+	comma := ""
+	for k, v := range exemplars {
+		n, err = w.WriteString(fmt.Sprintf("%s%s=\"%s\"", comma, k, v))
+		written += n
+		if err != nil {
+			return written, err
+		}
+		comma = ","
+	}
+
+	n, err = w.WriteString("} 0")
+	written += n
+	if err != nil {
+		return written, err
+	}
+
 	return written, nil
 }
 
